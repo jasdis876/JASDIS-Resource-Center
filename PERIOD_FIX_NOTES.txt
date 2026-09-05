@@ -1,0 +1,9 @@
+Gia salary period correction
+
+- 2025/26 is the CURRENT payroll baseline.
+- The 2026/27 +5% rate is NOT treated as already applied to the payslip.
+- 2026/27 is shown as the revised rate effective 1 April 2026.
+- 2027/28 is shown as the further +5% rate effective 1 April 2027.
+- Current payslip Basic Pay is matched only against the 2025/26 scale.
+- Retro is the difference between 2025/26 and 2026/27. If implementation starts in November 2026, April-October is shown as 7 months.
+- Take-home estimates can be viewed separately for each of the three periods.
