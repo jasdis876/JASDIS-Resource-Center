@@ -1,0 +1,68 @@
+name: Apply JASDIS manual download buttons
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-manual-download-buttons.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-manual-downloads:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Patch the original manual cards without changing other site features
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          html = p.read_text(encoding='utf-8')
+          marker = 'jasdis-manual-download-controls'
+          if marker in html:
+              print('Download controls already present; no change necessary.')
+              raise SystemExit(0)
+          start_mark = 'function manualCard(m){'
+          end_mark = '\nfunction renderManuals()'
+          assert html.count(start_mark) == 1, 'Expected exactly one manualCard function'
+          start = html.index(start_mark)
+          end = html.index(end_mark, start)
+          card = html[start:end]
+          ending = '</div></button></article>`}'
+          assert card.endswith(ending), 'Unexpected manual-card structure; refusing to modify'
+          download = '<a class="manual-download" href="${esc(manualSrc(m))}" download target="_blank" rel="noopener noreferrer" aria-label="Download ${esc(m.title)} PDF">⬇ Download PDF</a>'
+          revised_card = card[:-len(ending)] + '</div></button>' + download + '</article>`}'
+          html = html[:start] + revised_card + html[end:]
+          css = '''
+          <style id="jasdis-manual-download-controls">
+          .manual-card .manual-download{display:flex;align-items:center;justify-content:center;width:calc(100% - 8px);margin:13px 4px 0;padding:10px 12px;min-height:43px;background:#fff;border:1.5px solid var(--purple);border-radius:10px;color:var(--purple3);font-size:13.5px;font-weight:800;line-height:1.3;text-align:center;text-decoration:none;transition:background .18s,border-color .18s,box-shadow .18s}
+          .manual-card .manual-download:hover{background:var(--soft);border-color:var(--purple2);box-shadow:0 3px 12px rgba(56,26,77,.10)}
+          .manual-card .manual-download:active{transform:translateY(1px)}
+          </style>
+          '''
+          assert html.count('</head>') == 1, 'Unexpected head structure'
+          html = html.replace('</head>', css + '</head>', 1)
+          assert html.count('⬇ Download PDF') == 1
+          assert html.count('data-open-manual') >= 2, 'Existing reader actions missing'
+          assert html.count('"file":"') == 29, 'Manual index unexpectedly changed'
+          assert len(html) > 7500000, 'Unexpected original page size'
+          p.write_text(html, encoding='utf-8')
+          print('Patched 29 manual cards through the existing render function; original reader preserved.')
+          PY
+      - name: Commit the narrowly scoped index.html update
+        shell: bash
+        run: |
+          git diff --check
+          if ! git diff --quiet -- index.html; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add index.html
+            git commit -m 'Add direct PDF download links to JASDIS manual cards'
+            git push origin HEAD:main
+          fi
